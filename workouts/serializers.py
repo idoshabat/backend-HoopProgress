@@ -43,7 +43,19 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
             "makes",
             "success_rate",
             "created_at",
+            "workout",
         ]
+        
+    # def validate(self, data):
+    #     print("*********",self.instance)
+    #     workout = self.instance.workout if self.instance else data.get("workout")
+
+    #     if workout.sessions.count() >= workout.target_sessions:
+    #         raise serializers.ValidationError(
+    #             "Sessions of a completed workout cannot be modified."
+    #         )
+
+    #     return data
 
 
 class WorkoutSerializer(serializers.ModelSerializer):
@@ -72,3 +84,13 @@ class WorkoutSerializer(serializers.ModelSerializer):
             "sessions",
             "created_at",
         ]
+        
+    def validate(self, data):
+        instance = self.instance
+
+        if instance and instance.sessions.count() >= instance.target_sessions:
+            raise serializers.ValidationError(
+                "Completed workouts cannot be edited."
+            )
+
+        return data

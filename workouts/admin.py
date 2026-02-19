@@ -18,7 +18,7 @@ class WorkoutAdmin(admin.ModelAdmin):
 
 @admin.register(WorkoutSession)
 class WorkoutSessionAdmin(admin.ModelAdmin):
-    list_display = ("workout", "date", "attempts", "makes", "success_rate", "created_at")
+    list_display = ("workout","id", "date", "attempts", "makes", "success_rate", "created_at")
     list_filter = ("workout__name", "date")
     search_fields = ("workout__name", "workout__player__user__username")
     ordering = ("-date",)

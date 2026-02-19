@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Count, F, BooleanField, ExpressionWrapper, Q
+from rest_framework.decorators import action
 
 from .models import Workout, WorkoutSession, PlayerProfile
 from .serializers import (
@@ -23,6 +24,11 @@ class PlayerProfileViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return PlayerProfile.objects.filter(user=self.request.user)
 
+    @action(detail=False, methods=["get"], url_path="me")
+    def me(self, request):
+        profile = PlayerProfile.objects.get(user=request.user)
+        serializer = self.get_serializer(profile)
+        return Response(serializer.data)
 
 class WorkoutViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutSerializer
@@ -53,6 +59,18 @@ class WorkoutViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         player = get_object_or_404(PlayerProfile, user=self.request.user)
         serializer.save(player=player)
+        
+    def update(self, request, *args, **kwargs):
+        workout = self.get_object()
+
+        if workout.sessions.count() >= workout.target_sessions:
+            return Response(
+                {"detail": "Completed workouts cannot be edited."},
+                status=403
+            )
+
+        return super().update(request, *args, **kwargs)
+
 
 
 class WorkoutSessionViewSet(viewsets.ModelViewSet):
@@ -77,6 +95,25 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
             )
 
         serializer.save(workout=workout)
+        
+    # def perform_update(self, serializer):
+    #     session = self.get_object()
+    #     workout = session.workout
+        
+                
+    #     return super().perform_update(serializer)
+        
+    def destroy(self, request, *args, **kwargs):
+        session = self.get_object()
+        workout = session.workout
+
+        if workout.sessions.count() >= workout.target_sessions:
+            return Response(
+                {"detail": "Cannot delete session from a completed workout."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        return super().destroy(request, *args, **kwargs)
 
 
 class LoginView(APIView):
