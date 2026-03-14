@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Count, F, BooleanField, ExpressionWrapper, Q
 from rest_framework.decorators import action
+from django.conf import settings
+
 
 from .models import Workout, WorkoutSession, PlayerProfile
 from .serializers import (
@@ -120,6 +122,7 @@ class LoginView(APIView):
     permission_classes = []
 
     def post(self, request):
+        # Authenticate the user
         user = authenticate(
             username=request.data.get("username"),
             password=request.data.get("password"),
@@ -128,22 +131,33 @@ class LoginView(APIView):
         if not user:
             return Response({"detail": "Invalid credentials"}, status=400)
 
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        # Determine cookie settings based on environment
+        if settings.DEBUG:
+            cookie_secure = False  # HTTP on local
+            cookie_samesite = "Lax"
+        else:
+            cookie_secure = True   # HTTPS in production
+            cookie_samesite = "None"
 
         response = Response({
-            "access": str(refresh.access_token),
+            "access": access_token,
         })
 
+        # Set refresh cookie
         response.set_cookie(
             key="refresh",
             value=str(refresh),
             httponly=True,
-            secure=False,
-            samesite="Lax",
+            secure=cookie_secure,
+            samesite=cookie_samesite,
+            path="/",  # important: available to all routes
         )
 
         return response
-
 
 class LogoutView(APIView):
     def post(self, request):
