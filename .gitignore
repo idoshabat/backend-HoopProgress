@@ -1,2 +1,16 @@
+# Environment variables
 .env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Gunicorn
 gunicorn.ctl
+
+# Virtual environment (if ever inside repo)
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
