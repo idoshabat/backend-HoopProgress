@@ -9,15 +9,4 @@ class Migration(migrations.Migration):
         ('workouts', '0001_initial'),
     ]
 
-    operations = [
-        migrations.AddField(
-            model_name='workout',
-            name='target_sessions',
-            field=models.PositiveIntegerField(default=3),
-        ),
-        migrations.AlterField(
-            model_name='workout',
-            name='target_attempts',
-            field=models.PositiveIntegerField(default=10),
-        ),
-    ]
+    operations = []

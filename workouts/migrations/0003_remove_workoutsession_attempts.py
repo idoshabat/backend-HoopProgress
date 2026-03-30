@@ -9,9 +9,4 @@ class Migration(migrations.Migration):
         ('workouts', '0002_workout_target_sessions_and_more'),
     ]
 
-    operations = [
-        migrations.RemoveField(
-            model_name='workoutsession',
-            name='attempts',
-        ),
-    ]
+    operations = []
