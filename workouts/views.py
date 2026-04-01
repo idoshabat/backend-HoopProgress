@@ -9,6 +9,7 @@ from django.db.models import Count, F, BooleanField, ExpressionWrapper, Q
 from rest_framework.decorators import action
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils.dateparse import parse_date
 from .models import ConnectionRequest, User
 
 
@@ -212,9 +213,30 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return WorkoutSession.objects.filter(
+        return WorkoutSession.objects.select_related("workout").filter(
             workout__player__user=self.request.user
         )
+
+    @action(detail=False, methods=["get"], url_path="by-date")
+    def by_date(self, request):
+        date_value = request.query_params.get("date", "").strip()
+
+        if not date_value:
+            return Response(
+                {"detail": "date query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        parsed_date = parse_date(date_value)
+        if parsed_date is None:
+            return Response(
+                {"detail": "date must be in YYYY-MM-DD format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        sessions = self.get_queryset().filter(date=parsed_date)
+        serializer = self.get_serializer(sessions, many=True)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         if self.request.user.role != User.Role.PLAYER:
