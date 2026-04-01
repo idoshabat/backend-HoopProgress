@@ -69,10 +69,12 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://hoopprogress.duckdns.org",
     "https://hoop-progress-frontend.vercel.app",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
 
 
 ROOT_URLCONF = 'backend.urls'
