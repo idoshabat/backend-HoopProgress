@@ -96,6 +96,7 @@ class ConnectionRequestSerializer(serializers.ModelSerializer):
 class WorkoutSessionSerializer(serializers.ModelSerializer):
     attempts = serializers.IntegerField(read_only=True)
     success_rate = serializers.FloatField(read_only=True)
+    workout_name = serializers.CharField(source="workout.name", read_only=True)
 
     class Meta:
         model = WorkoutSession
@@ -107,6 +108,7 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
             "success_rate",
             "created_at",
             "workout",
+            "workout_name",
         ]
         
     # def validate(self, data):
