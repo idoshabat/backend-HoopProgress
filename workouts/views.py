@@ -217,24 +217,54 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
             workout__player__user=self.request.user
         )
 
-    @action(detail=False, methods=["get"], url_path="by-date")
-    def by_date(self, request):
+    def _get_requested_date(self, request):
         date_value = request.query_params.get("date", "").strip()
 
         if not date_value:
-            return Response(
+            return None, Response(
                 {"detail": "date query parameter is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         parsed_date = parse_date(date_value)
         if parsed_date is None:
-            return Response(
+            return None, Response(
                 {"detail": "date must be in YYYY-MM-DD format."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        return parsed_date, None
+
+    @action(detail=False, methods=["get"], url_path="by-date")
+    def by_date(self, request):
+        parsed_date, error_response = self._get_requested_date(request)
+        if error_response is not None:
+            return error_response
+
         sessions = self.get_queryset().filter(date=parsed_date)
+        serializer = self.get_serializer(sessions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="my-players/by-date")
+    def my_players_by_date(self, request):
+        if request.user.role != User.Role.COACH:
+            return Response(
+                {"detail": "Only coaches can view sessions for their players."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        parsed_date, error_response = self._get_requested_date(request)
+        if error_response is not None:
+            return error_response
+
+        sessions = WorkoutSession.objects.select_related(
+            "workout",
+            "workout__player",
+            "workout__player__user",
+        ).filter(
+            workout__player__coaches__user=request.user,
+            date=parsed_date,
+        ).distinct()
         serializer = self.get_serializer(sessions, many=True)
         return Response(serializer.data)
 
