@@ -97,6 +97,10 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
     attempts = serializers.IntegerField(read_only=True)
     success_rate = serializers.FloatField(read_only=True)
     workout_name = serializers.CharField(source="workout.name", read_only=True)
+    workout_goal_percentage = serializers.FloatField(
+        source="workout.goal_percentage",
+        read_only=True,
+    )
     player_username = serializers.CharField(
         source="workout.player.user.username",
         read_only=True,
@@ -113,6 +117,7 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
             "created_at",
             "workout",
             "workout_name",
+            "workout_goal_percentage",
             "player_username",
         ]
         
