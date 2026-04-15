@@ -230,3 +230,25 @@ class WorkoutSession(models.Model):
 
     def __str__(self):
         return f"{self.workout.name} - {self.date}"
+
+
+class WorkoutTemplate(models.Model):
+    """Template for quickly creating new workouts with predefined settings"""
+    coach = models.ForeignKey(
+        CoachProfile,
+        on_delete=models.CASCADE,
+        related_name="workout_templates"
+    )
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    target_attempts = models.PositiveIntegerField(default=10)  # shots per session
+    target_sessions = models.PositiveIntegerField(default=3)   # number of sessions
+    goal_percentage = models.FloatField(default=75.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} (Coach: {self.coach.user.username})"

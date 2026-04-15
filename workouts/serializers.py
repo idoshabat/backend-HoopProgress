@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ConnectionRequest, PlayerProfile, Workout, WorkoutSession
+from .models import ConnectionRequest, PlayerProfile, Workout, WorkoutSession, WorkoutTemplate
 from django.contrib.auth import get_user_model
 from .models import PlayerProfile, CoachProfile
 
@@ -187,3 +187,23 @@ class WorkoutSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+
+class WorkoutTemplateSerializer(serializers.ModelSerializer):
+    coach_username = serializers.CharField(source="coach.user.username", read_only=True)
+    
+    class Meta:
+        model = WorkoutTemplate
+        fields = [
+            "id",
+            "coach",
+            "coach_username",
+            "name",
+            "description",
+            "target_attempts",
+            "target_sessions",
+            "goal_percentage",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["coach", "coach_username", "created_at", "updated_at"]

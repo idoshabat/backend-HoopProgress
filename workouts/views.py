@@ -13,7 +13,7 @@ from django.utils.dateparse import parse_date
 from .models import ConnectionRequest, User
 
 
-from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile
+from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile, WorkoutTemplate
 from .serializers import (
     ConnectionRequestSerializer,
     PlayerProfileSerializer,
@@ -21,6 +21,7 @@ from .serializers import (
     WorkoutSerializer,
     WorkoutSessionSerializer,
     RegisterSerializer,
+    WorkoutTemplateSerializer,
 )
 
 
@@ -599,3 +600,77 @@ class RemoveCoachFromPlayerView(APIView):
             return Response({"detail": "Coach is not assigned to this player."}, status=400)
         player_profile.coaches.remove(coach_profile)
         return Response({"detail": f"Coach {coach_profile.user.username} removed from player {player_profile.user.username}"})
+
+
+class WorkoutTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = WorkoutTemplateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Only return templates for the current coach"""
+        if self.request.user.role != User.Role.COACH:
+            return WorkoutTemplate.objects.none()
+        coach_profile = get_object_or_404(CoachProfile, user=self.request.user)
+        return coach_profile.workout_templates.all()
+
+    def perform_create(self, serializer):
+        """Automatically assign the template to the current coach"""
+        if self.request.user.role != User.Role.COACH:
+            raise serializers.ValidationError({"detail": "Only coaches can create templates."})
+        
+        coach_profile = get_object_or_404(CoachProfile, user=self.request.user)
+        serializer.save(coach=coach_profile)
+
+    def perform_destroy(self, instance):
+        """Only the coach who created it can delete it"""
+        coach_profile = get_object_or_404(CoachProfile, user=self.request.user)
+        if instance.coach != coach_profile:
+            raise serializers.ValidationError({"detail": "You can only delete your own templates."})
+        instance.delete()
+
+    def perform_update(self, serializer):
+        """Only the coach who created it can update it"""
+        coach_profile = get_object_or_404(CoachProfile, user=self.request.user)
+        if serializer.instance.coach != coach_profile:
+            raise serializers.ValidationError({"detail": "You can only update your own templates."})
+        serializer.save()
+
+    @action(detail=True, methods=["post"], url_path="create-workout")
+    def create_workout(self, request, pk=None):
+        """Create a new workout from this template for a specific player"""
+        template = self.get_object()
+        
+        if request.user.role != User.Role.COACH:
+            return Response(
+                {"detail": "Only coaches can create workouts from templates."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        player_id = request.data.get("player_id")
+        if not player_id:
+            return Response(
+                {"detail": "player_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        coach_profile = get_object_or_404(CoachProfile, user=request.user)
+        player = get_object_or_404(PlayerProfile, id=player_id)
+
+        if not coach_profile.players.filter(pk=player.pk).exists():
+            return Response(
+                {"detail": "You can only create workouts for your own players."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Create a new workout from the template
+        workout = Workout.objects.create(
+            player=player,
+            assigned_by=request.user,
+            name=template.name,
+            target_attempts=template.target_attempts,
+            target_sessions=template.target_sessions,
+            goal_percentage=template.goal_percentage,
+        )
+
+        serializer = WorkoutSerializer(workout)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
