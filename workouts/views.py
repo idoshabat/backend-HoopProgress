@@ -13,7 +13,7 @@ from django.utils.dateparse import parse_date
 from .models import ConnectionRequest, User
 
 
-from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile, WorkoutTemplate
+from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile, WorkoutTemplate, Notification
 from .serializers import (
     ConnectionRequestSerializer,
     PlayerProfileSerializer,
@@ -22,6 +22,7 @@ from .serializers import (
     WorkoutSessionSerializer,
     RegisterSerializer,
     WorkoutTemplateSerializer,
+    NotificationSerializer,
 )
 
 
@@ -674,3 +675,48 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
 
         serializer = WorkoutSerializer(workout)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for managing user notifications"""
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.notifications.all()
+
+    @action(detail=False, methods=["get"])
+    def unread_count(self, request):
+        """Get count of unread notifications"""
+        count = request.user.notifications.filter(is_read=False).count()
+        return Response({"unread_count": count})
+
+    @action(detail=True, methods=["post"])
+    def mark_as_read(self, request, pk=None):
+        """Mark a specific notification as read"""
+        notification = self.get_object()
+        notification.mark_as_read()
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"])
+    def mark_all_as_read(self, request):
+        """Mark all notifications as read"""
+        from django.utils import timezone
+        unread = request.user.notifications.filter(is_read=False)
+        count = unread.count()
+        unread.update(is_read=True, read_at=timezone.now())
+        return Response({"marked_as_read": count})
+
+    @action(detail=True, methods=["delete"])
+    def delete_notification(self, request, pk=None):
+        """Delete a specific notification"""
+        notification = self.get_object()
+        notification.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["delete"])
+    def delete_all(self, request):
+        """Delete all notifications for the user"""
+        count, _ = request.user.notifications.all().delete()
+        return Response({"deleted": count})

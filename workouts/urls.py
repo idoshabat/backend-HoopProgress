@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import ConnectionRequestListView, FindPlayerByUsernameView, AddPlayerToCoachView,AddCoachToPlayerView, RemoveCoachFromPlayerView,FindCoachByUsernameView, PlayerProfileViewSet,CoachProfileViewSet, RemovePlayerFromCoachView, RespondConnectionRequestView, WorkoutViewSet, WorkoutSessionViewSet, LogoutView , LoginView , MeView ,  RegisterView, WorkoutTemplateViewSet
+from .views import ConnectionRequestListView, FindPlayerByUsernameView, AddPlayerToCoachView,AddCoachToPlayerView, RemoveCoachFromPlayerView,FindCoachByUsernameView, PlayerProfileViewSet,CoachProfileViewSet, RemovePlayerFromCoachView, RespondConnectionRequestView, WorkoutViewSet, WorkoutSessionViewSet, LogoutView , LoginView , MeView ,  RegisterView, WorkoutTemplateViewSet, NotificationViewSet
 from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -10,6 +10,7 @@ router.register("coaches-profiles", CoachProfileViewSet, basename="coach-profile
 router.register("workouts", WorkoutViewSet, basename="workout")
 router.register("sessions", WorkoutSessionViewSet, basename="session")
 router.register("workout-templates", WorkoutTemplateViewSet, basename="workout-template")
+router.register("notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = router.urls
 urlpatterns += [

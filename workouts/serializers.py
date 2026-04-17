@@ -207,3 +207,40 @@ class WorkoutTemplateSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["coach", "coach_username", "created_at", "updated_at"]
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    related_user_username = serializers.CharField(
+        source="related_user.username",
+        read_only=True,
+        required=False
+    )
+    related_workout_name = serializers.CharField(
+        source="related_workout.name",
+        read_only=True,
+        required=False
+    )
+
+    class Meta:
+        from .models import Notification
+        model = Notification
+        fields = [
+            "id",
+            "user",
+            "notification_type",
+            "title",
+            "message",
+            "related_user",
+            "related_user_username",
+            "related_workout",
+            "related_workout_name",
+            "is_read",
+            "read_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "user",
+            "created_at",
+            "read_at",
+        ]

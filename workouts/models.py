@@ -252,3 +252,65 @@ class WorkoutTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} (Coach: {self.coach.user.username})"
+
+
+class Notification(models.Model):
+    """Notifications for users about various app events"""
+    
+    class NotificationType(models.TextChoices):
+        # Player notifications
+        WORKOUT_ASSIGNED = "WORKOUT_ASSIGNED"
+        CONNECTION_ACCEPTED = "CONNECTION_ACCEPTED"
+        CONNECTION_REQUESTED = "CONNECTION_REQUESTED"
+        # Coach notifications
+        WORKOUT_COMPLETED = "WORKOUT_COMPLETED"
+        SESSION_ADDED = "SESSION_ADDED"
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications"
+    )
+    notification_type = models.CharField(
+        max_length=30,
+        choices=NotificationType.choices
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    
+    # Related objects (optional, for context)
+    related_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications_initiated_by"
+    )
+    related_workout = models.ForeignKey(
+        Workout,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications"
+    )
+    
+    # Status tracking
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', 'is_read']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+    
+    def mark_as_read(self):
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
