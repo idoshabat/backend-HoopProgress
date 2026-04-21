@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ConnectionRequest, PlayerProfile, Workout, WorkoutSession, WorkoutTemplate
+from .models import ConnectionRequest, DevicePushToken, PlayerProfile, Workout, WorkoutSession, WorkoutTemplate
 from django.contrib.auth import get_user_model
 from .models import PlayerProfile, CoachProfile
 
@@ -243,4 +243,23 @@ class NotificationSerializer(serializers.ModelSerializer):
             "user",
             "created_at",
             "read_at",
+        ]
+
+
+class DevicePushTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DevicePushToken
+        fields = [
+            "id",
+            "expo_push_token",
+            "platform",
+            "is_active",
+            "last_seen_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "is_active",
+            "last_seen_at",
+            "created_at",
         ]

@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import ConnectionRequestListView, FindPlayerByUsernameView, AddPlayerToCoachView,AddCoachToPlayerView, RemoveCoachFromPlayerView,FindCoachByUsernameView, PlayerProfileViewSet,CoachProfileViewSet, RemovePlayerFromCoachView, RespondConnectionRequestView, WorkoutViewSet, WorkoutSessionViewSet, LogoutView , LoginView , MobileLoginView, CookieTokenRefreshView, MobileTokenRefreshView, MeView ,  RegisterView, MobileRegisterView, WorkoutTemplateViewSet, NotificationViewSet
+from .views import ConnectionRequestListView, FindPlayerByUsernameView, AddPlayerToCoachView,AddCoachToPlayerView, RemoveCoachFromPlayerView,FindCoachByUsernameView, PlayerProfileViewSet,CoachProfileViewSet, RemovePlayerFromCoachView, RespondConnectionRequestView, WorkoutViewSet, WorkoutSessionViewSet, LogoutView , LoginView , MobileLoginView, CookieTokenRefreshView, MobileTokenRefreshView, MeView ,  RegisterView, MobileRegisterView, WorkoutTemplateViewSet, NotificationViewSet, RegisterDevicePushTokenView, DeactivateDevicePushTokenView
 from rest_framework.authtoken.views import obtain_auth_token
 
 router = DefaultRouter()
@@ -22,6 +22,8 @@ urlpatterns += [
     path("register/mobile/", MobileRegisterView.as_view()),
     path("token/refresh/", CookieTokenRefreshView.as_view()),
     path("token/refresh/mobile/", MobileTokenRefreshView.as_view()),
+    path("push-tokens/register/", RegisterDevicePushTokenView.as_view()),
+    path("push-tokens/deactivate/", DeactivateDevicePushTokenView.as_view()),
     path("add-coach-to-player/", AddCoachToPlayerView.as_view(), name="add-coach-to-player"),
     path("add-player-to-coach/", AddPlayerToCoachView.as_view(), name="add-player-to-coach"),
     path("connection-requests/", ConnectionRequestListView.as_view(), name="connection-request-list"),

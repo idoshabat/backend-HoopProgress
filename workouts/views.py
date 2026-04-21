@@ -14,9 +14,10 @@ from rest_framework_simplejwt.exceptions import TokenError
 from .models import ConnectionRequest, User
 
 
-from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile, WorkoutTemplate, Notification
+from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile, WorkoutTemplate, Notification, DevicePushToken
 from .serializers import (
     ConnectionRequestSerializer,
+    DevicePushTokenSerializer,
     PlayerProfileSerializer,
     CoachProfileSerializer,
     WorkoutSerializer,
@@ -791,3 +792,46 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         """Delete all notifications for the user"""
         count, _ = request.user.notifications.all().delete()
         return Response({"deleted": count})
+
+
+class RegisterDevicePushTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = DevicePushTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        expo_push_token = serializer.validated_data["expo_push_token"]
+        platform = serializer.validated_data.get("platform", DevicePushToken.Platform.UNKNOWN)
+
+        device_push_token, _ = DevicePushToken.objects.update_or_create(
+            expo_push_token=expo_push_token,
+            defaults={
+                "user": request.user,
+                "platform": platform,
+                "is_active": True,
+            },
+        )
+
+        response_serializer = DevicePushTokenSerializer(device_push_token)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class DeactivateDevicePushTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        expo_push_token = request.data.get("expo_push_token", "").strip()
+
+        if not expo_push_token:
+            return Response(
+                {"detail": "expo_push_token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        updated = DevicePushToken.objects.filter(
+            user=request.user,
+            expo_push_token=expo_push_token,
+        ).update(is_active=False)
+
+        return Response({"deactivated": updated})
