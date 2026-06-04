@@ -471,10 +471,12 @@ class MeView(APIView):
             data["position"] = profile.position
             data["height_cm"] = profile.height_cm
             data["date_of_birth"] = profile.date_of_birth
+            data["profile_photo_url"] = profile.profile_photo_url
             data["coaches"] = CoachProfileSerializer(profile.coaches.all(), many=True).data
         elif request.user.role == User.Role.COACH:
             profile = CoachProfile.objects.get(user=request.user)
             data["date_of_birth"] = profile.date_of_birth
+            data["profile_photo_url"] = profile.profile_photo_url
             data["players"] = PlayerProfileSerializer(profile.players.all(), many=True).data
         return Response(data)
 

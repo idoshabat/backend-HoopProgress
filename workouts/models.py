@@ -25,6 +25,7 @@ class PlayerProfile(models.Model):
     position = models.CharField(max_length=2, choices=Position.choices)
     height_cm = models.PositiveIntegerField(default=180)
     date_of_birth = models.DateField(default="2000-01-01")
+    profile_photo_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -33,6 +34,7 @@ class PlayerProfile(models.Model):
 class CoachProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     date_of_birth = models.DateField(null=True, blank=True)
+    profile_photo_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     players = models.ManyToManyField(PlayerProfile, related_name="coaches", blank=True)
 
