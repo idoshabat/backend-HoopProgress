@@ -12,7 +12,16 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PlayerProfile
-        fields = ["id", "username", "position", "height_cm", "date_of_birth", "profile_photo_url", "coaches"]
+        fields = [
+            "id",
+            "username",
+            "position",
+            "height_cm",
+            "date_of_birth",
+            "profile_photo_url",
+            "profile_photo_public_id",
+            "coaches",
+        ]
 
 class CoachProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
@@ -20,7 +29,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CoachProfile
-        fields = ["id", "username", "date_of_birth", "profile_photo_url", "players"]
+        fields = ["id", "username", "date_of_birth", "profile_photo_url", "profile_photo_public_id", "players"]
 
 class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=User.Role.choices)
@@ -33,10 +42,20 @@ class RegisterSerializer(serializers.ModelSerializer):
     height_cm = serializers.IntegerField(required=False, allow_null=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     profile_photo_url = serializers.URLField(required=False, allow_null=True)
+    profile_photo_public_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ["username", "password", "role", "position", "height_cm", "date_of_birth", "profile_photo_url"]
+        fields = [
+            "username",
+            "password",
+            "role",
+            "position",
+            "height_cm",
+            "date_of_birth",
+            "profile_photo_url",
+            "profile_photo_public_id",
+        ]
         extra_kwargs = {
             "password": {"write_only": True}
         }
@@ -56,6 +75,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         height_cm = validated_data.pop("height_cm", None)
         date_of_birth = validated_data.pop("date_of_birth", None)
         profile_photo_url = validated_data.pop("profile_photo_url", None)
+        profile_photo_public_id = validated_data.pop("profile_photo_public_id", None)
 
         user = User.objects.create_user(
             username=validated_data["username"],
@@ -70,6 +90,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 height_cm=height_cm,
                 date_of_birth=date_of_birth,
                 profile_photo_url=profile_photo_url,
+                profile_photo_public_id=profile_photo_public_id,
             )
 
         elif role == User.Role.COACH:
@@ -77,6 +98,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 user=user,
                 date_of_birth=date_of_birth,
                 profile_photo_url=profile_photo_url,
+                profile_photo_public_id=profile_photo_public_id,
             )
 
         return user

@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.utils.dateparse import parse_date
 from rest_framework_simplejwt.exceptions import TokenError
 from .models import ConnectionRequest, User
+from .cloudinary import delete_cloudinary_image
 
 
 from .models import Workout, WorkoutSession, PlayerProfile, CoachProfile, WorkoutTemplate, Notification, DevicePushToken
@@ -45,6 +46,14 @@ class PlayerProfileViewSet(viewsets.ModelViewSet):
         profile = PlayerProfile.objects.get(user=request.user)
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        previous_public_id = serializer.instance.profile_photo_public_id
+        profile = serializer.save()
+        new_public_id = profile.profile_photo_public_id
+
+        if previous_public_id and previous_public_id != new_public_id:
+            delete_cloudinary_image(previous_public_id)
     
 class CoachProfileViewSet(viewsets.ModelViewSet):
     serializer_class = CoachProfileSerializer
@@ -63,6 +72,14 @@ class CoachProfileViewSet(viewsets.ModelViewSet):
         profile = CoachProfile.objects.get(user=request.user)
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        previous_public_id = serializer.instance.profile_photo_public_id
+        profile = serializer.save()
+        new_public_id = profile.profile_photo_public_id
+
+        if previous_public_id and previous_public_id != new_public_id:
+            delete_cloudinary_image(previous_public_id)
 
 class WorkoutViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutSerializer
@@ -472,11 +489,13 @@ class MeView(APIView):
             data["height_cm"] = profile.height_cm
             data["date_of_birth"] = profile.date_of_birth
             data["profile_photo_url"] = profile.profile_photo_url
+            data["profile_photo_public_id"] = profile.profile_photo_public_id
             data["coaches"] = CoachProfileSerializer(profile.coaches.all(), many=True).data
         elif request.user.role == User.Role.COACH:
             profile = CoachProfile.objects.get(user=request.user)
             data["date_of_birth"] = profile.date_of_birth
             data["profile_photo_url"] = profile.profile_photo_url
+            data["profile_photo_public_id"] = profile.profile_photo_public_id
             data["players"] = PlayerProfileSerializer(profile.players.all(), many=True).data
         return Response(data)
 
