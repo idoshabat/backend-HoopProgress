@@ -8,6 +8,8 @@ User = get_user_model()
 
 class PlayerProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
+    first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True)
+    last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True)
     coaches = serializers.StringRelatedField(many=True, read_only=True)
 
     class Meta:
@@ -15,6 +17,8 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "username",
+            "first_name",
+            "last_name",
             "position",
             "height_cm",
             "date_of_birth",
@@ -23,16 +27,59 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
             "coaches",
         ]
 
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        user = instance.user
+        if "first_name" in user_data:
+            user.first_name = user_data["first_name"]
+        if "last_name" in user_data:
+            user.last_name = user_data["last_name"]
+        user.save(update_fields=["first_name", "last_name"])
+
+        return instance
+
 class CoachProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
+    first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True)
+    last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True)
     players = PlayerProfileSerializer(many=True, read_only=True)
 
     class Meta:
         model = CoachProfile
-        fields = ["id", "username", "date_of_birth", "profile_photo_url", "profile_photo_public_id", "players"]
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "profile_photo_url",
+            "profile_photo_public_id",
+            "players",
+        ]
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        user = instance.user
+        if "first_name" in user_data:
+            user.first_name = user_data["first_name"]
+        if "last_name" in user_data:
+            user.last_name = user_data["last_name"]
+        user.save(update_fields=["first_name", "last_name"])
+
+        return instance
 
 class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=User.Role.choices)
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
 
     # Player fields (only required for players)
     position = serializers.ChoiceField(
@@ -49,6 +96,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = [
             "username",
             "password",
+            "first_name",
+            "last_name",
             "role",
             "position",
             "height_cm",
@@ -71,6 +120,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         role = validated_data.pop("role")
+        first_name = validated_data.pop("first_name", "")
+        last_name = validated_data.pop("last_name", "")
         position = validated_data.pop("position", None)
         height_cm = validated_data.pop("height_cm", None)
         date_of_birth = validated_data.pop("date_of_birth", None)
@@ -80,7 +131,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             username=validated_data["username"],
             password=validated_data["password"],
-            role=role
+            role=role,
+            first_name=first_name,
+            last_name=last_name,
         )
 
         if role == User.Role.PLAYER:
