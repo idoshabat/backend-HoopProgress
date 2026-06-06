@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import CoachProfile, ConnectionRequest, PlayerProfile, User, Workout, WorkoutSession
 
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
+class UserAdmin(admin.ModelAdmin): 
     list_display = ("id","username", "email", "role", "is_staff", "is_superuser")
 
 
