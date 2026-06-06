@@ -421,8 +421,9 @@ def _exchange_google_auth_code(code):
         try:
             userinfo_response = urllib_request.urlopen(
                 urllib_request.Request(
-                    url=f"https://openidconnect.googleapis.com/v1/userinfo?access_token={urllib_parse.quote(access_token)}",
+                    url="https://openidconnect.googleapis.com/v1/userinfo",
                     method="GET",
+                    headers={"Authorization": f"Bearer {access_token}"},
                 ),
                 timeout=10,
             )
@@ -431,8 +432,25 @@ def _exchange_google_auth_code(code):
         except Exception:
             pass
 
+    if id_token and (not claims.get("email") or not claims.get("sub")):
+        try:
+            tokeninfo_response = urllib_request.urlopen(
+                urllib_request.Request(
+                    url=f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib_parse.quote(id_token)}",
+                    method="GET",
+                ),
+                timeout=10,
+            )
+            tokeninfo = json.loads(tokeninfo_response.read().decode("utf-8"))
+            claims = {**claims, **tokeninfo}
+        except Exception:
+            pass
+
     if not claims.get("email_verified", False):
         raise ValidationError("Google account email must be verified.")
+
+    if not claims.get("email") or not claims.get("sub"):
+        raise ValidationError("Google account did not provide the required identity fields.")
 
     return claims
 
@@ -599,6 +617,12 @@ class GoogleRegisterView(APIView):
         except ValidationError as exc:
             detail = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
             return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not claims.get("email") or not claims.get("sub"):
+            return Response(
+                {"detail": "Google account details were incomplete. Please try again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         existing_user = _get_or_link_google_user(claims)
         if existing_user:
