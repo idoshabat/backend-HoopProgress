@@ -11,6 +11,7 @@ class User(AbstractUser):
         COACH = "COACH"
 
     role = models.CharField(max_length=10, choices=Role.choices)
+    google_sub = models.CharField(max_length=255, unique=True, null=True, blank=True)
 
 
 class PlayerProfile(models.Model):

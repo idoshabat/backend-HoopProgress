@@ -11,6 +11,9 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.dateparse import parse_date
 from rest_framework_simplejwt.exceptions import TokenError
+import base64
+import json
+from urllib import parse as urllib_parse, request as urllib_request
 from .models import ConnectionRequest, User
 from .cloudinary import delete_cloudinary_image
 
@@ -367,6 +370,82 @@ def _build_token_response(user, include_refresh=False):
     return response
 
 
+def _decode_jwt_payload(token):
+    try:
+        payload_segment = token.split(".")[1]
+        padded_segment = payload_segment + "=" * (-len(payload_segment) % 4)
+        decoded_bytes = base64.urlsafe_b64decode(padded_segment.encode("utf-8"))
+        return json.loads(decoded_bytes.decode("utf-8"))
+    except Exception as exc:
+        raise ValidationError("Invalid Google identity token.") from exc
+
+
+def _exchange_google_auth_code(code):
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        raise ValidationError("Google sign-in is not configured.")
+
+    payload = urllib_parse.urlencode(
+        {
+            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": "postmessage",
+            "grant_type": "authorization_code",
+        }
+    ).encode("utf-8")
+
+    try:
+        response = urllib_request.urlopen(
+            urllib_request.Request(
+                url="https://oauth2.googleapis.com/token",
+                data=payload,
+                method="POST",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            ),
+            timeout=10,
+        )
+        token_data = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        raise ValidationError("Failed to verify Google sign-in.") from exc
+
+    id_token = token_data.get("id_token")
+    if not id_token:
+        raise ValidationError("Google sign-in response did not include an identity token.")
+
+    claims = _decode_jwt_payload(id_token)
+    if claims.get("aud") != settings.GOOGLE_CLIENT_ID:
+        raise ValidationError("Google sign-in audience mismatch.")
+
+    if not claims.get("email_verified", False):
+        raise ValidationError("Google account email must be verified.")
+
+    return claims
+
+
+def _get_google_claims_from_request(request):
+    code = request.data.get("code", "").strip()
+    if not code:
+        raise ValidationError("Google authorization code is required.")
+    return _exchange_google_auth_code(code)
+
+
+def _get_or_link_google_user(claims):
+    google_sub = claims.get("sub")
+    email = (claims.get("email") or "").strip()
+
+    if not google_sub or not email:
+        raise ValidationError("Google account information is incomplete.")
+
+    user = User.objects.filter(google_sub=google_sub).first()
+    if user:
+        if not user.email:
+            user.email = email
+            user.save(update_fields=["email"])
+        return user
+
+    return None
+
+
 class LoginView(APIView):
     permission_classes = []
 
@@ -381,6 +460,29 @@ class LoginView(APIView):
             return Response({"detail": "Invalid credentials"}, status=400)
 
         return _build_token_response(user)
+
+
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            claims = _get_google_claims_from_request(request)
+        except ValidationError as exc:
+            detail = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = _get_or_link_google_user(claims)
+        if not user:
+            return Response(
+                {"detail": "No account found for this Google user. Please register first."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        response = _build_token_response(user)
+        response.data["role"] = user.role
+        response.data["username"] = user.username
+        return response
 
 
 class MobileLoginView(APIView):
@@ -454,6 +556,42 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.save()
+        response = _build_token_response(user)
+        response.data["role"] = user.role
+        response.data["username"] = user.username
+        return response
+
+
+class GoogleRegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            claims = _get_google_claims_from_request(request)
+        except ValidationError as exc:
+            detail = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_user = _get_or_link_google_user(claims)
+        if existing_user:
+            response = _build_token_response(existing_user)
+            response.data["role"] = existing_user.role
+            response.data["username"] = existing_user.username
+            return response
+
+        payload = request.data.copy()
+        payload["password"] = User.objects.make_random_password()
+        payload["first_name"] = (payload.get("first_name") or claims.get("given_name") or "").strip()
+        payload["last_name"] = (payload.get("last_name") or claims.get("family_name") or "").strip()
+
+        serializer = RegisterSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        user.email = claims.get("email", "")
+        user.google_sub = claims.get("sub")
+        user.set_unusable_password()
+        user.save(update_fields=["email", "google_sub", "password"])
+
         response = _build_token_response(user)
         response.data["role"] = user.role
         response.data["username"] = user.username

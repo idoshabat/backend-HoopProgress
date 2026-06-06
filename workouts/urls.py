@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import ConnectionRequestListView, FindPlayerByUsernameView, AddPlayerToCoachView,AddCoachToPlayerView, RemoveCoachFromPlayerView,FindCoachByUsernameView, PlayerProfileViewSet,CoachProfileViewSet, RemovePlayerFromCoachView, RespondConnectionRequestView, WorkoutViewSet, WorkoutSessionViewSet, LogoutView , LoginView , MobileLoginView, CookieTokenRefreshView, MobileTokenRefreshView, MeView ,  RegisterView, MobileRegisterView, WorkoutTemplateViewSet, NotificationViewSet, RegisterDevicePushTokenView, DeactivateDevicePushTokenView
+from .views import ConnectionRequestListView, FindPlayerByUsernameView, AddPlayerToCoachView,AddCoachToPlayerView, RemoveCoachFromPlayerView,FindCoachByUsernameView, PlayerProfileViewSet,CoachProfileViewSet, RemovePlayerFromCoachView, RespondConnectionRequestView, WorkoutViewSet, WorkoutSessionViewSet, LogoutView , LoginView , GoogleLoginView, MobileLoginView, CookieTokenRefreshView, MobileTokenRefreshView, MeView ,  RegisterView, GoogleRegisterView, MobileRegisterView, WorkoutTemplateViewSet, NotificationViewSet, RegisterDevicePushTokenView, DeactivateDevicePushTokenView
 from rest_framework.authtoken.views import obtain_auth_token
 
 router = DefaultRouter()
@@ -16,9 +16,11 @@ urlpatterns += [
     path("token-auth/", obtain_auth_token),
     path("logout/", LogoutView.as_view(), name="logout"),  # no quotes
     path("login/", LoginView.as_view()),
+    path("login/google/", GoogleLoginView.as_view()),
     path("login/mobile/", MobileLoginView.as_view()),
     path("me/", MeView.as_view()),
     path("register/", RegisterView.as_view()),
+    path("register/google/", GoogleRegisterView.as_view()),
     path("register/mobile/", MobileRegisterView.as_view()),
     path("token/refresh/", CookieTokenRefreshView.as_view()),
     path("token/refresh/mobile/", MobileTokenRefreshView.as_view()),
