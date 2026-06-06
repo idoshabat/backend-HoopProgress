@@ -137,22 +137,33 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
 
         if role == User.Role.PLAYER:
+            player_profile_kwargs = {
+                "user": user,
+                "position": position,
+                "profile_photo_url": profile_photo_url,
+                "profile_photo_public_id": profile_photo_public_id,
+            }
+
+            if height_cm is not None:
+                player_profile_kwargs["height_cm"] = height_cm
+
+            if date_of_birth is not None:
+                player_profile_kwargs["date_of_birth"] = date_of_birth
+
             PlayerProfile.objects.create(
-                user=user,
-                position=position,
-                height_cm=height_cm,
-                date_of_birth=date_of_birth,
-                profile_photo_url=profile_photo_url,
-                profile_photo_public_id=profile_photo_public_id,
+                **player_profile_kwargs,
             )
 
         elif role == User.Role.COACH:
-            CoachProfile.objects.create(
-                user=user,
-                date_of_birth=date_of_birth,
-                profile_photo_url=profile_photo_url,
-                profile_photo_public_id=profile_photo_public_id,
-            )
+            coach_profile_kwargs = {
+                "user": user,
+                "profile_photo_url": profile_photo_url,
+                "profile_photo_public_id": profile_photo_public_id,
+            }
+            if date_of_birth is not None:
+                coach_profile_kwargs["date_of_birth"] = date_of_birth
+
+            CoachProfile.objects.create(**coach_profile_kwargs)
 
         return user
 

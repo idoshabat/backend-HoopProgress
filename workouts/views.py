@@ -9,6 +9,7 @@ from django.db.models import Count, F, BooleanField, ExpressionWrapper, Q
 from rest_framework.decorators import action
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core import signing
 from django.utils.dateparse import parse_date
 from rest_framework_simplejwt.exceptions import TokenError
 import base64
@@ -463,6 +464,33 @@ def _get_google_claims_from_request(request):
     return _exchange_google_auth_code(code)
 
 
+def _build_google_signup_token(claims):
+    payload = {
+        "sub": claims.get("sub"),
+        "email": (claims.get("email") or "").strip().lower(),
+        "given_name": (claims.get("given_name") or "").strip(),
+        "family_name": (claims.get("family_name") or "").strip(),
+        "picture": claims.get("picture"),
+    }
+    return signing.dumps(payload, salt="google-signup-context")
+
+
+def _load_google_signup_claims(signup_token):
+    try:
+        claims = signing.loads(
+            signup_token,
+            salt="google-signup-context",
+            max_age=15 * 60,
+        )
+    except signing.BadSignature as exc:
+        raise ValidationError("Google signup session is invalid or expired. Please try again.") from exc
+
+    if not claims.get("email") or not claims.get("sub"):
+        raise ValidationError("Google signup session is missing required identity fields.")
+
+    return claims
+
+
 def _get_or_link_google_user(claims):
     google_sub = claims.get("sub")
     email = (claims.get("email") or "").strip().lower()
@@ -613,17 +641,12 @@ class GoogleRegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        signup_token = (request.data.get("signup_token") or "").strip()
         try:
-            claims = _get_google_claims_from_request(request)
+            claims = _load_google_signup_claims(signup_token)
         except ValidationError as exc:
             detail = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
             return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not claims.get("email") or not claims.get("sub"):
-            return Response(
-                {"detail": "Google account details were incomplete. Please try again."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         existing_user = _get_or_link_google_user(claims)
         if existing_user:
@@ -649,6 +672,34 @@ class GoogleRegisterView(APIView):
         response.data["role"] = user.role
         response.data["username"] = user.username
         return response
+
+
+class GoogleRegisterContextView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            claims = _get_google_claims_from_request(request)
+        except ValidationError as exc:
+            detail = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_user = _get_or_link_google_user(claims)
+        if existing_user:
+            return Response(
+                {"detail": "An account already exists for this Google user. Please log in instead."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(
+            {
+                "signup_token": _build_google_signup_token(claims),
+                "email": (claims.get("email") or "").strip().lower(),
+                "first_name": (claims.get("given_name") or "").strip(),
+                "last_name": (claims.get("family_name") or "").strip(),
+                "picture": claims.get("picture"),
+            }
+        )
 
 
 class MobileRegisterView(APIView):
