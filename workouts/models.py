@@ -12,6 +12,7 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=10, choices=Role.choices)
     google_sub = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    phone_number = models.CharField(max_length=30, blank=True)
 
 
 class PlayerProfile(models.Model):

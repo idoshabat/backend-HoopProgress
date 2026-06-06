@@ -10,6 +10,7 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True)
     last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True)
+    phone_number = serializers.CharField(source="user.phone_number", required=False, allow_blank=True)
     coaches = serializers.StringRelatedField(many=True, read_only=True)
 
     class Meta:
@@ -19,6 +20,7 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
             "username",
             "first_name",
             "last_name",
+            "phone_number",
             "position",
             "height_cm",
             "date_of_birth",
@@ -38,14 +40,24 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
             user.first_name = user_data["first_name"]
         if "last_name" in user_data:
             user.last_name = user_data["last_name"]
-        user.save(update_fields=["first_name", "last_name"])
+        if "phone_number" in user_data:
+            user.phone_number = user_data["phone_number"]
+        user.save(update_fields=["first_name", "last_name", "phone_number"])
 
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if not request or request.user != instance.user:
+            data.pop("phone_number", None)
+        return data
 
 class CoachProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True)
     last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True)
+    phone_number = serializers.CharField(source="user.phone_number", required=False, allow_blank=True)
     players = PlayerProfileSerializer(many=True, read_only=True)
 
     class Meta:
@@ -55,6 +67,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
             "username",
             "first_name",
             "last_name",
+            "phone_number",
             "date_of_birth",
             "profile_photo_url",
             "profile_photo_public_id",
@@ -72,14 +85,24 @@ class CoachProfileSerializer(serializers.ModelSerializer):
             user.first_name = user_data["first_name"]
         if "last_name" in user_data:
             user.last_name = user_data["last_name"]
-        user.save(update_fields=["first_name", "last_name"])
+        if "phone_number" in user_data:
+            user.phone_number = user_data["phone_number"]
+        user.save(update_fields=["first_name", "last_name", "phone_number"])
 
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if not request or request.user != instance.user:
+            data.pop("phone_number", None)
+        return data
 
 class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=User.Role.choices)
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
 
     # Player fields (only required for players)
     position = serializers.ChoiceField(
@@ -98,6 +121,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "password",
             "first_name",
             "last_name",
+            "phone_number",
             "role",
             "position",
             "height_cm",
@@ -122,6 +146,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         role = validated_data.pop("role")
         first_name = validated_data.pop("first_name", "")
         last_name = validated_data.pop("last_name", "")
+        phone_number = validated_data.pop("phone_number", "")
         position = validated_data.pop("position", None)
         height_cm = validated_data.pop("height_cm", None)
         date_of_birth = validated_data.pop("date_of_birth", None)
@@ -134,6 +159,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             role=role,
             first_name=first_name,
             last_name=last_name,
+            phone_number=phone_number,
         )
 
         if role == User.Role.PLAYER:

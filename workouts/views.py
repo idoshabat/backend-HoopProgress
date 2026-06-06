@@ -748,6 +748,7 @@ class MeView(APIView):
             "username": request.user.username,
             "first_name": request.user.first_name,
             "last_name": request.user.last_name,
+            "phone_number": request.user.phone_number,
             "role": request.user.role,
         }
         if request.user.role == User.Role.PLAYER:
