@@ -623,6 +623,29 @@ class LogoutView(APIView):
         return response
 
 
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        profile_public_id = None
+
+        if request.user.role == User.Role.PLAYER:
+            profile = PlayerProfile.objects.filter(user=request.user).first()
+            profile_public_id = profile.profile_photo_public_id if profile else None
+        elif request.user.role == User.Role.COACH:
+            profile = CoachProfile.objects.filter(user=request.user).first()
+            profile_public_id = profile.profile_photo_public_id if profile else None
+
+        if profile_public_id:
+            delete_cloudinary_image(profile_public_id)
+
+        request.user.delete()
+
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        response.delete_cookie("refresh", path="/")
+        return response
+
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
