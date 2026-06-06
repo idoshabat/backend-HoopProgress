@@ -13,6 +13,7 @@ from django.utils.dateparse import parse_date
 from rest_framework_simplejwt.exceptions import TokenError
 import base64
 import json
+import secrets
 from urllib import parse as urllib_parse, request as urllib_request
 from .models import ConnectionRequest, User
 from .cloudinary import delete_cloudinary_image
@@ -632,7 +633,7 @@ class GoogleRegisterView(APIView):
             return response
 
         payload = request.data.copy()
-        payload["password"] = User.objects.make_random_password()
+        payload["password"] = secrets.token_urlsafe(24)
         payload["first_name"] = (payload.get("first_name") or claims.get("given_name") or "").strip()
         payload["last_name"] = (payload.get("last_name") or claims.get("family_name") or "").strip()
 
