@@ -431,16 +431,29 @@ def _get_google_claims_from_request(request):
 
 def _get_or_link_google_user(claims):
     google_sub = claims.get("sub")
-    email = (claims.get("email") or "").strip()
+    email = (claims.get("email") or "").strip().lower()
 
     if not google_sub or not email:
         raise ValidationError("Google account information is incomplete.")
 
     user = User.objects.filter(google_sub=google_sub).first()
     if user:
+        updated_fields = []
         if not user.email:
             user.email = email
-            user.save(update_fields=["email"])
+            updated_fields.append("email")
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+        return user
+
+    user = User.objects.filter(email__iexact=email).first()
+    if user:
+        user.google_sub = google_sub
+        if not user.email:
+            user.email = email
+            user.save(update_fields=["google_sub", "email"])
+        else:
+            user.save(update_fields=["google_sub"])
         return user
 
     return None
@@ -587,7 +600,7 @@ class GoogleRegisterView(APIView):
         serializer = RegisterSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        user.email = claims.get("email", "")
+        user.email = (claims.get("email") or "").strip().lower()
         user.google_sub = claims.get("sub")
         user.set_unusable_password()
         user.save(update_fields=["email", "google_sub", "password"])
