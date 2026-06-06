@@ -416,6 +416,21 @@ def _exchange_google_auth_code(code):
     if claims.get("aud") != settings.GOOGLE_CLIENT_ID:
         raise ValidationError("Google sign-in audience mismatch.")
 
+    access_token = token_data.get("access_token")
+    if access_token:
+        try:
+            userinfo_response = urllib_request.urlopen(
+                urllib_request.Request(
+                    url=f"https://openidconnect.googleapis.com/v1/userinfo?access_token={urllib_parse.quote(access_token)}",
+                    method="GET",
+                ),
+                timeout=10,
+            )
+            userinfo = json.loads(userinfo_response.read().decode("utf-8"))
+            claims = {**claims, **userinfo}
+        except Exception:
+            pass
+
     if not claims.get("email_verified", False):
         raise ValidationError("Google account email must be verified.")
 
