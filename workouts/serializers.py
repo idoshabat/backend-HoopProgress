@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import ConnectionRequest, DevicePushToken, PlayerProfile, Workout, WorkoutSession, WorkoutTemplate
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from .models import PlayerProfile, CoachProfile
 
 User = get_user_model()
@@ -8,6 +9,7 @@ User = get_user_model()
 
 class PlayerProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", required=False)
     first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True)
     last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True)
     phone_number = serializers.CharField(source="user.phone_number", required=False, allow_blank=True)
@@ -18,6 +20,7 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "username",
+            "email",
             "first_name",
             "last_name",
             "phone_number",
@@ -40,9 +43,11 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
             user.first_name = user_data["first_name"]
         if "last_name" in user_data:
             user.last_name = user_data["last_name"]
+        if "email" in user_data:
+            user.email = user_data["email"]
         if "phone_number" in user_data:
             user.phone_number = user_data["phone_number"]
-        user.save(update_fields=["first_name", "last_name", "phone_number"])
+        user.save(update_fields=["first_name", "last_name", "email", "phone_number"])
 
         return instance
 
@@ -55,6 +60,7 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
 
 class CoachProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", required=False)
     first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True)
     last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True)
     phone_number = serializers.CharField(source="user.phone_number", required=False, allow_blank=True)
@@ -65,6 +71,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "username",
+            "email",
             "first_name",
             "last_name",
             "phone_number",
@@ -85,9 +92,11 @@ class CoachProfileSerializer(serializers.ModelSerializer):
             user.first_name = user_data["first_name"]
         if "last_name" in user_data:
             user.last_name = user_data["last_name"]
+        if "email" in user_data:
+            user.email = user_data["email"]
         if "phone_number" in user_data:
             user.phone_number = user_data["phone_number"]
-        user.save(update_fields=["first_name", "last_name", "phone_number"])
+        user.save(update_fields=["first_name", "last_name", "email", "phone_number"])
 
         return instance
 
@@ -99,6 +108,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
     role = serializers.ChoiceField(choices=User.Role.choices)
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
@@ -119,6 +129,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = [
             "username",
             "password",
+            "email",
             "first_name",
             "last_name",
             "phone_number",
@@ -147,6 +158,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         first_name = validated_data.pop("first_name", "")
         last_name = validated_data.pop("last_name", "")
         phone_number = validated_data.pop("phone_number", "")
+        email = validated_data.pop("email", "").strip().lower()
         position = validated_data.pop("position", None)
         height_cm = validated_data.pop("height_cm", None)
         date_of_birth = validated_data.pop("date_of_birth", None)
@@ -156,6 +168,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             username=validated_data["username"],
             password=validated_data["password"],
+            email=email,
             role=role,
             first_name=first_name,
             last_name=last_name,
@@ -192,6 +205,20 @@ class RegisterSerializer(serializers.ModelSerializer):
             CoachProfile.objects.create(**coach_profile_kwargs)
 
         return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
 
 
 class ConnectionRequestSerializer(serializers.ModelSerializer):

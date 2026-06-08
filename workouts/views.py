@@ -3,13 +3,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth import authenticate
+from django.contrib.auth.tokens import default_token_generator
 from django.shortcuts import get_object_or_404
+from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Count, F, BooleanField, ExpressionWrapper, Q
 from rest_framework.decorators import action
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core import signing
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.dateparse import parse_date
 from rest_framework_simplejwt.exceptions import TokenError
 import base64
@@ -29,6 +33,8 @@ from .serializers import (
     WorkoutSerializer,
     WorkoutSessionSerializer,
     RegisterSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
     WorkoutTemplateSerializer,
     NotificationSerializer,
 )
@@ -679,6 +685,7 @@ class GoogleRegisterView(APIView):
             return response
 
         payload = request.data.copy()
+        payload["email"] = (claims.get("email") or "").strip().lower()
         payload["password"] = secrets.token_urlsafe(24)
         payload["first_name"] = (payload.get("first_name") or claims.get("given_name") or "").strip()
         payload["last_name"] = (payload.get("last_name") or claims.get("family_name") or "").strip()
@@ -739,6 +746,63 @@ class MobileRegisterView(APIView):
         return response
 
 
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"].strip().lower()
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?uid={uid}&token={token}"
+            send_mail(
+                subject="Reset your HoopProgress password",
+                message=(
+                    "We received a request to reset your HoopProgress password.\n\n"
+                    f"Use this link to set a new password:\n{reset_link}\n\n"
+                    "If you did not request this, you can safely ignore this email."
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {"detail": "If an account exists for this email, a reset link was sent."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
+        except Exception:
+            return Response({"detail": "Reset link is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({"detail": "Reset link is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
+
+
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -746,6 +810,7 @@ class MeView(APIView):
         data = {
             "id": request.user.id,
             "username": request.user.username,
+            "email": request.user.email,
             "first_name": request.user.first_name,
             "last_name": request.user.last_name,
             "phone_number": request.user.phone_number,
