@@ -322,10 +322,23 @@ class WorkoutSerializer(serializers.ModelSerializer):
     def validate(self, data):
         instance = self.instance
 
-        if instance and instance.sessions.count() >= instance.target_sessions:
-            raise serializers.ValidationError(
-                "Completed workouts cannot be edited."
-            )
+        if instance:
+            existing_sessions = instance.sessions.count()
+
+            if existing_sessions >= instance.target_sessions:
+                raise serializers.ValidationError(
+                    "Completed workouts cannot be edited."
+                )
+
+            next_target_sessions = data.get("target_sessions", instance.target_sessions)
+            if next_target_sessions < existing_sessions:
+                raise serializers.ValidationError(
+                    {
+                        "target_sessions": (
+                            f"Target sessions cannot be less than completed sessions ({existing_sessions})."
+                        )
+                    }
+                )
 
         if instance and "player" in data and data["player"] != instance.player:
             raise serializers.ValidationError(
