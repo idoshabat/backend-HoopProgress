@@ -463,10 +463,31 @@ def _exchange_google_auth_code(code):
     return claims
 
 
+def _get_google_claims_from_id_token(id_token):
+    if not settings.GOOGLE_CLIENT_ID:
+        raise ValidationError("Google sign-in is not configured.")
+
+    claims = _decode_jwt_payload(id_token)
+    if claims.get("aud") != settings.GOOGLE_CLIENT_ID:
+        raise ValidationError("Google sign-in audience mismatch.")
+
+    if not claims.get("email_verified", False):
+        raise ValidationError("Google account email must be verified.")
+
+    if not claims.get("email") or not claims.get("sub"):
+        raise ValidationError("Google account did not provide the required identity fields.")
+
+    return claims
+
+
 def _get_google_claims_from_request(request):
+    id_token = request.data.get("id_token", "").strip()
+    if id_token:
+        return _get_google_claims_from_id_token(id_token)
+
     code = request.data.get("code", "").strip()
     if not code:
-        raise ValidationError("Google authorization code is required.")
+        raise ValidationError("Google authorization code or ID token is required.")
     return _exchange_google_auth_code(code)
 
 
@@ -560,7 +581,7 @@ class GoogleLoginView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        response = _build_token_response(user)
+        response = _build_token_response(user, include_refresh=True)
         response.data["role"] = user.role
         response.data["username"] = user.username
         return response
@@ -679,7 +700,7 @@ class GoogleRegisterView(APIView):
 
         existing_user = _get_or_link_google_user(claims)
         if existing_user:
-            response = _build_token_response(existing_user)
+            response = _build_token_response(existing_user, include_refresh=True)
             response.data["role"] = existing_user.role
             response.data["username"] = existing_user.username
             return response
@@ -698,7 +719,7 @@ class GoogleRegisterView(APIView):
         user.set_unusable_password()
         user.save(update_fields=["email", "google_sub", "password"])
 
-        response = _build_token_response(user)
+        response = _build_token_response(user, include_refresh=True)
         response.data["role"] = user.role
         response.data["username"] = user.username
         return response
