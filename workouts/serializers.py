@@ -409,3 +409,6 @@ class DevicePushTokenSerializer(serializers.ModelSerializer):
             "last_seen_at",
             "created_at",
         ]
+        extra_kwargs = {
+            "expo_push_token": {"validators": []},
+        }
